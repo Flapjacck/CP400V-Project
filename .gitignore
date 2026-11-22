@@ -31,10 +31,9 @@ coverage/
 Thumbs.db
 .DS_Store
 
-# Docker
-.dockerignore
-
 # Project specific
-db/data/ # Database volume
-docs/*.pdf # Report PDFs
+# Database volume
+db/data/
+# Report PDFs
+docs/*.pdf
 demo-video-link.txt
