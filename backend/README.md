@@ -1,23 +1,21 @@
-# Getting Started with [Fastify-CLI](https://www.npmjs.com/package/fastify-cli)
-This project was bootstrapped with Fastify-CLI.
+# Backend
 
-## Available Scripts
+Fastify API in TypeScript.
 
-In the project directory, you can run:
+## Run locally
 
-### `npm run dev`
+```sh
+pnpm install
+pnpm dev
+pnpm test
+```
 
-To start the app in dev mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Run in Docker
 
-### `npm start`
+```sh
+docker build -t backend ./backend
+docker run -p 3000:3000 backend
+curl localhost:3000/api/health
+```
 
-For production mode
-
-### `npm run test`
-
-Run the test cases.
-
-## Learn More
-
-To learn Fastify, check out the [Fastify documentation](https://fastify.dev/docs/latest/).
+Should return `{"status":"ok"}`. Set `PORT` to change the port.
