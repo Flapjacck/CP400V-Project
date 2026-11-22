@@ -1,23 +1,28 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "This project was bootstrapped with Fastify-CLI.",
-  "main": "app.js",
+  "type": "module",
+  "description": "Fastify backend API server",
+  "main": "dist/server.js",
   "directories": {
-    "test": "test"
+    "test": "src/test"
   },
   "scripts": {
-    "test": "node --test test/**/*.test.js",
-    "start": "fastify start -l info app.js",
-    "dev": "fastify start -w -l info -P app.js"
+    "build": "tsc",
+    "dev": "node --import tsx/esm src/server.ts",
+    "start": "node dist/server.js",
+    "test": "pnpm build && node --test dist/test/**/*.test.js"
   },
   "keywords": [],
   "dependencies": {
     "fastify": "^5.0.0",
     "fastify-plugin": "^5.0.0",
     "@fastify/autoload": "^6.0.0",
-    "@fastify/sensible": "^6.0.0",
-    "fastify-cli": "^7.4.1"
+    "@fastify/sensible": "^6.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.6",
+    "tsx": "^4.7.0"
+  }
 }
