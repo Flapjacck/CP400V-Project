@@ -9,4 +9,4 @@ Same language as the frontend, and Fastify has good types. Cost: a build step, d
 Each feature is its own file under `src/routes/`, so adding auth, tracks or likes doesn't touch `app.ts`.
 
 ## MinIO image in Compose
-Upstream `minio/minio` and `minio/mc` no longer pull from Docker Hub. The stack uses a pinned `cgr.dev/chainguard/minio` image and `amazon/aws-cli` for the one-shot `audio` bucket so `docker compose up` still works offline from those registries.
+The official `minio/minio` and `minio/mc` images are no longer on Docker Hub. We use `cgr.dev/chainguard/minio`, pinned by digest, and `amazon/aws-cli` to create the `audio` bucket.

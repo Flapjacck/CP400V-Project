@@ -1,10 +1,10 @@
 # CP400V Final Project
 
-This file lays out what our GitHub repo needs to hold for the CP400V final project (Cloud Architecture Investigation, Design and Prototype). The written report lives in a shared Google Doc. Everything that runs, builds, or gets graded as code lives here.
+This file lays out what our GitHub repo needs to hold for the CP400V final project (Cloud Architecture Investigation, Design and Prototype). The written report is drafted in our Notion workspace. Everything that runs, builds, or gets graded as code lives here.
 
 **Due:** December 10, 11:59 p.m. Eastern. Late work loses 20% if it's under 24 hours late, and after that it isn't accepted. So we're aiming for Dec 8.
 
-**Domain:** TBD. We pick this first, since almost everything below depends on it.
+**Domain:** audio streaming platform (upload, stream, like, follow, report).
 
 ---
 
@@ -21,7 +21,7 @@ The spec asks us to submit these, and they belong in the repo:
 | Architecture diagram (source and export) | `docs/diagram/` | Architecture design (12) |
 | Link to the demo video | `README.md` | Demonstration (4) |
 
-The report sections (investigation, design and decisions, security analysis, failure analysis) get written in the Google Doc. The repo only links to the final PDF.
+The report sections (investigation, design and decisions, security analysis, failure analysis) get written in Notion. The repo only links to the final PDF.
 
 ---
 
@@ -45,7 +45,7 @@ The report sections (investigation, design and decisions, security analysis, fai
 │   └── init/            # schema and seed SQL, run on first start
 ├── docs/
 │   ├── diagram/         # .drawio source plus a PNG/SVG export
-│   ├── report.pdf       # final export from the Google Doc, added at the end
+│   ├── report.pdf       # final export of the report, added at the end
 │   └── decisions.md     # short running log of choices we made and why
 └── scripts/
     └── verify.sh        # quick checks the README points to
