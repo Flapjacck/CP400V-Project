@@ -24,7 +24,7 @@ curl http://localhost:8080/api/health
 
 | Service  | Role in the prototype        |
 | -------- | ---------------------------- |
-| frontend | Nginx + React (CloudFront/edge stand-in) |
+| frontend | Nginx + React (stand-in for CloudFront, the load balancer and the S3 frontend bucket) |
 | backend  | Fastify API (EKS stand-in)   |
 | db       | Postgres with `pgdata` volume (Supabase stand-in) |
 | minio    | S3-compatible audio storage  |
