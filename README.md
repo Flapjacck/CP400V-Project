@@ -17,8 +17,10 @@ App: [http://localhost:8080](http://localhost:8080)
 
 ```sh
 curl http://localhost:8080/api/health
-# {"status":"ok"}
+# {"status":"ok","db":"ok","storage":"ok"}
 ```
+
+Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, and `S3_REGION` (defaults are fine for local work).
 
 ## What’s in the stack
 
@@ -26,7 +28,36 @@ curl http://localhost:8080/api/health
 | -------- | ---------------------------- |
 | frontend | Nginx + React (stand-in for CloudFront, the load balancer and the S3 frontend bucket) |
 | backend  | Fastify API (EKS stand-in)   |
-| db       | Postgres with `pgdata` volume (Supabase stand-in) |
-| minio    | S3-compatible audio storage  |
+| db       | Postgres 16, init SQL in `db/init/`, `pgdata` volume (Supabase stand-in) |
+| minio    | S3-compatible audio storage (`audio` bucket); no host port |
 
 Only port **8080** is published to the host. Backend, Postgres, and MinIO sit on an internal `data` network.
+
+## Database
+
+Open a shell in Postgres:
+
+```sh
+docker compose exec db psql -U postgres -d app
+```
+
+List tables: `\dt`
+
+Init scripts in `db/init/` run only the first time the `pgdata` volume is created. After schema changes, reset data:
+
+```sh
+docker compose down -v
+docker compose up --build
+```
+
+The backend connects as the limited `APP_DB_USER` role (no DDL). Admin user comes from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env`.
+
+## Storage
+
+MinIO holds the `audio` bucket (name from `S3_BUCKET` in `.env`). The backend uses the AWS SDK with `S3_ENDPOINT` pointed at MinIO.
+
+Smoke test from the running backend container:
+
+```sh
+docker compose exec backend node dist/scripts/storage-smoke.js
+```

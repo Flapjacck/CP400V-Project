@@ -10,3 +10,9 @@ Each feature is its own file under `src/routes/`, so adding auth, tracks or like
 
 ## MinIO image in Compose
 The official `minio/minio` and `minio/mc` images are no longer on Docker Hub. We use `cgr.dev/chainguard/minio`, pinned by digest, and `amazon/aws-cli` to create the `audio` bucket.
+
+## Plain SQL with pg, no ORM
+Schema lives in `db/init/` and the API uses the `pg` driver with parameterised queries. That matches Supabase Postgres without dragging in an ORM or migration runner. Trade-off: init scripts only run on a fresh volume, so local schema changes need `docker compose down -v`.
+
+## Audio streams through Fastify in the prototype
+Playback goes through the API so the browser only talks to the edge URL. Presigned S3 URLs are the cloud design, but they target one host and MinIO has no public port on `data`. The storage helper is still the real AWS SDK so only the endpoint changes for production S3.
