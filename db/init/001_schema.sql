@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- FR1: accounts (email, profile, role)
+-- FR1, FR8: accounts and profiles (email, display name, bio, role)
 CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
@@ -21,7 +21,7 @@ CREATE TABLE refresh_tokens (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- FR3–FR8: track upload, metadata, playback stats
+-- FR3 to FR7, FR14: tracks (upload, edit, stream, browse, play counts)
 CREATE TABLE tracks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -43,7 +43,7 @@ CREATE TABLE likes (
   PRIMARY KEY (user_id, track_id)
 );
 
--- FR10–FR11: follow graph
+-- FR10: follows
 CREATE TABLE follows (
   follower_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   followee_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -52,7 +52,7 @@ CREATE TABLE follows (
   CHECK (follower_id <> followee_id)
 );
 
--- FR14: content reports
+-- FR11, FR12: reports and moderation
 CREATE TABLE reports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
