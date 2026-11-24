@@ -72,3 +72,14 @@ Smoke test from the running backend container:
 ```sh
 docker compose exec backend node dist/scripts/storage-smoke.js
 ```
+
+## Continuous integration
+
+GitHub Actions runs on pull requests and pushes to `main`:
+
+| Workflow | What it checks |
+| -------- | -------------- |
+| [Backend](.github/workflows/backend.yml) | `pnpm test`, `pnpm build`, and applying `db/init/` to Postgres 16 (schema, app role, admin seed) |
+| [Frontend](.github/workflows/frontend.yml) | `pnpm build` and `pnpm lint` (unit tests not added yet) |
+
+Each workflow only runs when files under that service (or `db/` for the backend job) change. Use **Actions → Run workflow** to trigger either one manually.
