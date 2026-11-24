@@ -51,3 +51,13 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+  docker-image:
+    name: Frontend Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: docker build -t cp400v-frontend:ci ./frontend
