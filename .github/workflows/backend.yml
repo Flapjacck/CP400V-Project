@@ -1,0 +1,107 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "db/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "db/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    name: Unit tests and TypeScript build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript compile
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test
+
+  database:
+    name: Database init scripts
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+      APP_DB_USER: app
+      APP_DB_PASSWORD: changeme-app
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: changeme
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply db/init scripts
+        run: |
+          psql -v ON_ERROR_STOP=1 -d app -f db/init/001_schema.sql
+          bash db/init/002_app_role.sh
+          bash db/init/003_seed_admin.sh
+
+      - name: Verify schema, app role, and seed
+        run: |
+          table_count="$(psql -v ON_ERROR_STOP=1 -d app -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';")"
+          test "$table_count" -eq 6
+          psql -v ON_ERROR_STOP=1 -d app -c \
+            "SELECT email, role FROM users WHERE role = 'admin';"
+          PGPASSWORD=changeme-app psql -v ON_ERROR_STOP=1 -U app -d app -c \
+            "SELECT 1 FROM users LIMIT 1;"
