@@ -1,17 +1,19 @@
-import Fastify from 'fastify'
+import Fastify, { type FastifyServerOptions } from 'fastify'
 import app from './app.js'
 
 const port = Number(process.env.PORT ?? 3000)
 const host = process.env.HOST ?? '0.0.0.0'
 
 const server = Fastify({
+  // One Nginx hop in front so request.ip is the real client, not spoofable past it.
+  trustProxy: 1 as unknown as FastifyServerOptions['trustProxy'],
   logger: {
     // Auth routes must not land passwords or token values in container logs.
     redact: [
       'req.headers.authorization',
       'req.headers.cookie',
       'req.body.password',
-      'res.headers.set-cookie',
+      'res.headers["set-cookie"]',
     ],
   },
   ajv: {
