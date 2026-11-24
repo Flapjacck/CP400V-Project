@@ -31,6 +31,17 @@ curl -i -c cookies.txt \
 
 Response **201**: `{ "accessToken": "...", "user": { "id", "email", "displayName", "bio", "role" } }`. The `refresh_token` cookie is set for `/api/auth`.
 
+## Log in
+
+```sh
+curl -i -c cookies.txt \
+  -H 'content-type: application/json' \
+  -d '{"email":"admin@example.com","password":"changeme"}' \
+  http://localhost:8080/api/auth/login
+```
+
+Response **200** with the same body shape as sign up. The `refresh_token` cookie is set for `/api/auth`. Wrong email or password returns **401** with `{ "error": "Invalid email or password" }`. Login is limited to **5 tries per minute per IP**; the sixth attempt returns **429**.
+
 Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 
 ## What’s in the stack

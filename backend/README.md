@@ -13,8 +13,16 @@ Fastify API in TypeScript.
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Credentials (MinIO root user in Compose) |
 | `JWT_SECRET` | Signing key for access tokens (at least 32 characters) |
 | `COOKIE_SECURE` | Set `true` to add the Secure flag on refresh cookies (default off locally) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded admin user (email must be lowercase; used by `db/init`) |
 
 Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars (or point `DATABASE_URL` at a local Postgres).
+
+## Auth routes
+
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| POST | `/api/auth/signup` | Create user; returns access token and sets refresh cookie |
+| POST | `/api/auth/login` | Same response shape; **5 requests per minute per IP** (429 after that) |
 
 ## Layout
 
