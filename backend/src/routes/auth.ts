@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import rateLimit from '@fastify/rate-limit'
 import type { FastifyPluginAsync } from 'fastify'
 import {
   REFRESH_COOKIE_NAME,
@@ -9,6 +10,9 @@ import {
 
 const BCRYPT_ROUNDS = 10
 
+// Keeps login timing similar when the email is unknown.
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', BCRYPT_ROUNDS)
+
 const signupBodySchema = {
   type: 'object',
   required: ['email', 'password', 'displayName'],
@@ -17,6 +21,16 @@ const signupBodySchema = {
     email: { type: 'string', format: 'email', maxLength: 254 },
     password: { type: 'string', minLength: 8, maxLength: 72 },
     displayName: { type: 'string', minLength: 1, maxLength: 50 },
+  },
+} as const
+
+const loginBodySchema = {
+  type: 'object',
+  required: ['email', 'password'],
+  additionalProperties: false,
+  properties: {
+    email: { type: 'string', format: 'email', maxLength: 254 },
+    password: { type: 'string', minLength: 1, maxLength: 72 },
   },
 } as const
 
@@ -33,7 +47,7 @@ const userResponseSchema = {
 } as const
 
 // Response schema blocks password_hash from ever showing up in JSON.
-const signupResponseSchema = {
+const authResponseSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -48,6 +62,30 @@ type SignupBody = {
   displayName: string
 }
 
+type LoginBody = {
+  email: string
+  password: string
+}
+
+type UserRow = {
+  id: string
+  email: string
+  display_name: string
+  bio: string
+  role: 'user' | 'admin'
+  password_hash?: string
+}
+
+function toUserJson(row: UserRow) {
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    bio: row.bio,
+    role: row.role,
+  }
+}
+
 // Insert-only uniqueness; Postgres 23505 means the email is taken.
 function isUniqueViolation(err: unknown): boolean {
   return (
@@ -58,16 +96,19 @@ function isUniqueViolation(err: unknown): boolean {
   )
 }
 
-// Login, refresh, and logout are added in later issues.
+// Refresh and logout are added in #22.
 
 const auth: FastifyPluginAsync = async (fastify) => {
+  // Only routes that set config.rateLimit are capped; signup stays open.
+  await fastify.register(rateLimit, { global: false })
+
   fastify.post<{ Body: SignupBody }>(
     '/api/auth/signup',
     {
       schema: {
         body: signupBodySchema,
         response: {
-          201: signupResponseSchema,
+          201: authResponseSchema,
         },
       },
     },
@@ -85,24 +126,13 @@ const auth: FastifyPluginAsync = async (fastify) => {
       )
 
       const client = await fastify.db.connect()
-      let user: {
-        id: string
-        email: string
-        display_name: string
-        bio: string
-        role: 'user' | 'admin'
-      }
+      let user: UserRow
+      const refreshRaw = newRefreshToken()
 
       // User row and refresh token hash commit together or not at all.
       try {
         await client.query('BEGIN')
-        const insertUser = await client.query<{
-          id: string
-          email: string
-          display_name: string
-          bio: string
-          role: 'user' | 'admin'
-        }>(
+        const insertUser = await client.query<UserRow>(
           `INSERT INTO users (email, password_hash, display_name)
            VALUES ($1, $2, $3)
            RETURNING id, email, display_name, bio, role`,
@@ -110,28 +140,9 @@ const auth: FastifyPluginAsync = async (fastify) => {
         )
         user = insertUser.rows[0]
 
-        const refreshRaw = newRefreshToken()
         await saveRefreshToken(client, user.id, refreshRaw)
 
         await client.query('COMMIT')
-
-        reply.setCookie(REFRESH_COOKIE_NAME, refreshRaw, refreshCookieOptions())
-
-        const accessToken = await reply.jwtSign({
-          sub: user.id,
-          role: user.role,
-        })
-
-        return reply.code(201).send({
-          accessToken,
-          user: {
-            id: user.id,
-            email: user.email,
-            displayName: user.display_name,
-            bio: user.bio,
-            role: user.role,
-          },
-        })
       } catch (err) {
         await client.query('ROLLBACK')
         if (isUniqueViolation(err)) {
@@ -141,6 +152,80 @@ const auth: FastifyPluginAsync = async (fastify) => {
       } finally {
         client.release()
       }
+
+      reply.setCookie(REFRESH_COOKIE_NAME, refreshRaw, refreshCookieOptions())
+
+      const accessToken = await reply.jwtSign({
+        sub: user.id,
+        role: user.role,
+      })
+
+      return reply.code(201).send({
+        accessToken,
+        user: toUserJson(user),
+      })
+    }
+  )
+
+  fastify.post<{ Body: LoginBody }>(
+    '/api/auth/login',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+        },
+      },
+      schema: {
+        body: loginBodySchema,
+        response: {
+          200: authResponseSchema,
+        },
+      },
+      // Trim before format:email runs so spaced mixed-case input still validates.
+      preValidation: async (request) => {
+        const body = request.body
+        if (body && typeof body.email === 'string') {
+          body.email = body.email.trim().toLowerCase()
+        }
+      },
+    },
+    async (request, reply) => {
+      const email = request.body.email
+
+      const { rows } = await fastify.db.query<UserRow>(
+        `SELECT id, email, password_hash, display_name, bio, role
+         FROM users WHERE email = $1`,
+        [email]
+      )
+      const user = rows[0]
+
+      const hashToCompare = user?.password_hash ?? DUMMY_HASH
+      const passwordOk = await bcrypt.compare(
+        request.body.password,
+        hashToCompare
+      )
+
+      if (!user || !passwordOk) {
+        return reply
+          .code(401)
+          .send({ error: 'Invalid email or password' })
+      }
+
+      const refreshRaw = newRefreshToken()
+      await saveRefreshToken(fastify.db, user.id, refreshRaw)
+
+      reply.setCookie(REFRESH_COOKIE_NAME, refreshRaw, refreshCookieOptions())
+
+      const accessToken = await reply.jwtSign({
+        sub: user.id,
+        role: user.role,
+      })
+
+      return reply.code(200).send({
+        accessToken,
+        user: toUserJson(user),
+      })
     }
   )
 }
