@@ -79,7 +79,7 @@ GitHub Actions runs on pull requests and pushes to `main`:
 
 | Workflow | What it checks |
 | -------- | -------------- |
-| [Backend](.github/workflows/backend.yml) | `pnpm test`, `pnpm build`, and applying `db/init/` to Postgres 16 (schema, app role, admin seed) |
-| [Frontend](.github/workflows/frontend.yml) | `pnpm build` and `pnpm lint` (unit tests not added yet) |
+| [Backend](.github/workflows/backend.yml) | `pnpm test`, `pnpm build`, applying `db/init/` to Postgres 16 (schema, app role, admin seed), building the backend image, and `docker compose config` |
+| [Frontend](.github/workflows/frontend.yml) | `pnpm build`, `pnpm lint` and building the frontend image (unit tests not added yet) |
 
-Each workflow only runs when files under that service (or `db/` for the backend job) change. Use **Actions → Run workflow** to trigger either one manually.
+Each workflow only runs when files under that service change. The backend workflow also runs for `db/`, `docker-compose.yml` and `.env.example`. Use **Actions → Run workflow** to trigger either one manually.
