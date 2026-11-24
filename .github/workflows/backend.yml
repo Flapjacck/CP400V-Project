@@ -6,12 +6,16 @@ on:
     paths:
       - "backend/**"
       - "db/**"
+      - "docker-compose.yml"
+      - ".env.example"
       - ".github/workflows/backend.yml"
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
       - "db/**"
+      - "docker-compose.yml"
+      - ".env.example"
       - ".github/workflows/backend.yml"
   workflow_dispatch:
 
@@ -105,3 +109,25 @@ jobs:
             "SELECT email, role FROM users WHERE role = 'admin';"
           PGPASSWORD=changeme-app psql -v ON_ERROR_STOP=1 -U app -d app -c \
             "SELECT 1 FROM users LIMIT 1;"
+
+  docker-image:
+    name: Backend Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t cp400v-backend:ci ./backend
+
+  compose:
+    name: Compose file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
