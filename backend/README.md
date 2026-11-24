@@ -11,12 +11,14 @@ Fastify API in TypeScript.
 | `S3_BUCKET` | Bucket name (default `audio`) |
 | `S3_REGION` | AWS region string for the SDK |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Credentials (MinIO root user in Compose) |
+| `JWT_SECRET` | Signing key for access tokens (at least 32 characters) |
+| `COOKIE_SECURE` | Set `true` to add the Secure flag on refresh cookies (default off locally) |
 
 Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars (or point `DATABASE_URL` at a local Postgres).
 
 ## Layout
 
-- `src/plugins/` — `db` (`pg` pool) and `storage` (S3 client helpers), registered in `app.ts` before routes
+- `src/plugins/` — `db`, `auth` (JWT and cookies), and `storage`, registered in `app.ts` before routes
 - `src/lib/storage.ts` — `Storage` class used by the plugin and scripts
 - `src/scripts/storage-smoke.ts` — put/get/delete check against MinIO; builds to `dist/scripts/storage-smoke.js`
 

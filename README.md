@@ -20,7 +20,18 @@ curl http://localhost:8080/api/health
 # {"status":"ok","db":"ok","storage":"ok"}
 ```
 
-Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, and `S3_REGION` (defaults are fine for local work).
+## Sign up
+
+```sh
+curl -i -c cookies.txt \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"password123","displayName":"You"}' \
+  http://localhost:8080/api/auth/signup
+```
+
+Response **201**: `{ "accessToken": "...", "user": { "id", "email", "displayName", "bio", "role" } }`. The `refresh_token` cookie is set for `/api/auth`.
+
+Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 
 ## What’s in the stack
 
