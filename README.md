@@ -42,6 +42,28 @@ curl -i -c cookies.txt \
 
 Response **200** with the same body shape as sign up. The `refresh_token` cookie is set for `/api/auth`. Wrong email or password returns **401** with `{ "error": "Invalid email or password" }`. Login is limited to **5 tries per minute per IP**; the sixth attempt returns **429**.
 
+## Refresh
+
+After sign up or login, keep using the same cookie jar:
+
+```sh
+curl -i -b cookies.txt -c cookies.txt \
+  -X POST \
+  http://localhost:8080/api/auth/refresh
+```
+
+Response **200** with the same body shape as login (`accessToken` and `user`). The role in the new JWT comes from the database. The refresh cookie is unchanged. Missing, unknown, revoked, or expired refresh tokens return **401** with `{ "error": "Unauthorized" }` and clear the cookie.
+
+## Log out
+
+```sh
+curl -i -b cookies.txt -c cookies.txt \
+  -X POST \
+  http://localhost:8080/api/auth/logout
+```
+
+Always **204** with no body. When the cookie is present, the server revokes that refresh token and clears the cookie. A later refresh then returns **401**.
+
 Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 
 ## What’s in the stack
