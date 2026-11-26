@@ -54,6 +54,7 @@ function createFakeDb(
             display_name: params?.[2],
             bio: '',
             role: 'user',
+            created_at: new Date('2025-01-01T00:00:00Z'),
           },
         ],
       }
@@ -69,6 +70,7 @@ function createFakeDb(
               display_name: 'Admin',
               bio: '',
               role: 'admin',
+              created_at: new Date('2025-01-01T00:00:00Z'),
             },
           ],
         }
@@ -91,6 +93,7 @@ function createFakeDb(
               display_name: 'Admin',
               bio: '',
               role: 'admin',
+              created_at: new Date('2025-01-01T00:00:00Z'),
             },
           ],
         }
@@ -230,6 +233,7 @@ test('signup OK returns 201 with accessToken and user', async () => {
   assert.ok(body.accessToken.length > 0)
   assert.strictEqual(body.user.email, 'user@example.com')
   assert.strictEqual(body.user.displayName, 'Test User')
+  assert.strictEqual(body.user.createdAt, '2025-01-01T00:00:00.000Z')
   assert.ok(!('password_hash' in body.user))
 
   const setCookie = res.headers['set-cookie']
