@@ -1,0 +1,52 @@
+/*
+  Hookd "Press" theme.
+  Single source for colours, fonts and shared styles. Every token in @theme
+  becomes a Tailwind utility (bg-paper, text-ink, border-rule, font-serif...),
+  so pages should use those classes instead of raw hex values.
+*/
+
+@theme {
+  /* Colours */
+  --color-paper: #f3eee4; /* page background */
+  --color-card: #ffffff; /* cards and panels */
+  --color-ink: #111111; /* text and heavy rules */
+  --color-muted: #6e675c; /* secondary text */
+  --color-rule: #d8d0c0; /* hairlines, unplayed waveform */
+  --color-signal: #2d3cff; /* primary actions, played hook */
+  --color-hook: #e4ff3a; /* the hook highlighter */
+  --color-alert: #ff5a1f; /* chart movers and alerts */
+
+  /* Fonts. Overrides Tailwind's defaults so font-serif and font-sans are the brand fonts */
+  --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
+  --font-sans: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+
+  /* Wide tracking for small caps labels */
+  --tracking-label: 0.16em;
+}
+
+@layer base {
+  html {
+    @apply bg-paper font-sans text-ink antialiased;
+  }
+
+  /* Headlines default to the serif so every page gets the magazine look */
+  h1,
+  h2,
+  h3 {
+    @apply font-serif font-normal;
+  }
+
+  ::selection {
+    @apply bg-hook text-ink;
+  }
+}
+
+/* Small caps section label, e.g. "HOOK OF THE WEEK" */
+@utility label {
+  @apply text-xs font-bold tracking-label uppercase;
+}
+
+/* Yellow highlighter used anywhere we point at a hook */
+@utility hook-mark {
+  @apply bg-hook px-1 text-ink;
+}
