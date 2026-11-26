@@ -11,7 +11,7 @@ CREATE TABLE users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Security: refresh token rotation and revocation
+-- Security: refresh tokens (hashed, revocable; not rotated)
 CREATE TABLE refresh_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
