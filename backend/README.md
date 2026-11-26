@@ -32,6 +32,7 @@ Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars
 | ------ | ---- | ----- |
 | GET | `/api/me` | Current user (includes email and `createdAt`); 401 if the token or user is gone |
 | PATCH | `/api/me` | Update `displayName` and/or `bio` only; `role`, `email` and unknown fields are 400 |
+| GET | `/api/users/:id` | Public profile (`id`, `displayName`, `bio`, `createdAt`); no login; 400 bad id, 404 unknown user |
 
 ## Layout
 
@@ -40,7 +41,7 @@ Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars
 - `src/lib/` holds plain functions with no Fastify setup, so routes and tests can import them directly:
   - `env.ts`: `requireEnv` for required settings
   - `db.ts`: `Queryable` (pool or transaction client) and `isUniqueViolation`
-  - `users.ts`: `UserRow`, `USER_COLUMNS`, `findUserById`, `updateUserProfile`, `toUserJson`, `userResponseSchema`
+  - `users.ts`: `UserRow`, `USER_COLUMNS`, `findUserById`, `PublicUserRow`, `PUBLIC_USER_COLUMNS`, `findPublicUserById`, `updateUserProfile`, `toUserJson`, `toPublicUserJson`, `userResponseSchema`, `publicUserSchema`
   - `passwords.ts`: `hashPassword`, `verifyPassword`, `newPasswordSchema`
   - `tokens.ts`: refresh tokens, cookie helpers and `signAccessToken`
   - `schemas.ts`: `errorSchema` and `authResponseSchema`
