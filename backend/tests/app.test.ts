@@ -29,5 +29,6 @@ test('app serves auth routes at /api/auth/* from routes/auth/', async () => {
   assert.ok(fastify.hasRoute({ method: 'GET', url: '/api/health' }))
   assert.ok(fastify.hasRoute({ method: 'GET', url: '/api/me' }))
   assert.ok(fastify.hasRoute({ method: 'PATCH', url: '/api/me' }))
+  assert.ok(fastify.hasRoute({ method: 'GET', url: '/api/users/:id' }))
   await fastify.close()
 })
