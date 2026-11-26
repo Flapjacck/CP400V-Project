@@ -81,6 +81,23 @@ Both return **200** with `{ "id", "email", "displayName", "bio", "role", "create
 
 `PATCH` accepts `displayName` (1-50 characters, trimmed) and `bio` (up to 500 characters, trimmed). Send at least one. Any other field (including `role` and `email`), an empty body, a blank `displayName` or a too-long value returns **400** (Fastify validation errors, or `{ "error": "Bad Request" }` for a blank name). A missing, invalid or expired token, or a user that no longer exists, returns **401** with `{ "error": "Unauthorized" }`.
 
+## Change password
+
+```sh
+curl -i -b cookies.txt -c cookies.txt \
+  -X POST \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'content-type: application/json' \
+  -d '{"currentPassword":"old-password","newPassword":"new-password"}' \
+  http://localhost:8080/api/me/password
+```
+
+Response **204** with no body on success. All refresh tokens for the account are revoked and this browser receives a fresh `refresh_token` cookie, so other devices are logged out on their next refresh. Access tokens already issued still work until they expire (up to 15 minutes).
+
+A wrong current password returns **401** with `{ "error": "Current password is incorrect" }`. A missing, invalid or expired token returns **401** with `{ "error": "Unauthorized" }`.
+
+A `newPassword` outside 8–72 characters or any extra field in the body returns **400**. More than 5 attempts per minute returns **429**.
+
 Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 
 ## Public profiles
