@@ -3,7 +3,11 @@ import assert from 'node:assert'
 import bcrypt from 'bcryptjs'
 import Fastify, { type FastifyInstance } from 'fastify'
 import authPlugin from '../../src/plugins/auth.js'
-import authRoutes from '../../src/routes/auth.js'
+import rateLimitPlugin from '../../src/plugins/rate-limit.js'
+import signupRoute from '../../src/routes/auth/signup.js'
+import loginRoute from '../../src/routes/auth/login.js'
+import refreshRoute from '../../src/routes/auth/refresh.js'
+import logoutRoute from '../../src/routes/auth/logout.js'
 import { hashToken } from '../../src/lib/tokens.js'
 
 const TEST_SECRET =
@@ -143,6 +147,15 @@ function createFakeDb(
   return db
 }
 
+// Mirrors app.ts: the rate limiter is registered once, then each route file.
+async function registerAuthRoutes(fastify: FastifyInstance) {
+  await fastify.register(rateLimitPlugin)
+  await fastify.register(signupRoute)
+  await fastify.register(loginRoute)
+  await fastify.register(refreshRoute)
+  await fastify.register(logoutRoute)
+}
+
 async function injectSignup(
   body: Record<string, unknown>,
   db = createFakeDb()
@@ -153,7 +166,7 @@ async function injectSignup(
   })
   await fastify.register(authPlugin)
   fastify.decorate('db', db as never)
-  await fastify.register(authRoutes)
+  await registerAuthRoutes(fastify)
   const res = await fastify.inject({
     method: 'POST',
     url: '/api/auth/signup',
@@ -173,7 +186,7 @@ async function injectLogin(
   })
   await fastify.register(authPlugin)
   fastify.decorate('db', db as never)
-  await fastify.register(authRoutes)
+  await registerAuthRoutes(fastify)
   const res = await fastify.inject({
     method: 'POST',
     url: '/api/auth/login',
@@ -192,7 +205,7 @@ async function createAuthFastify(
   })
   await fastify.register(authPlugin)
   fastify.decorate('db', db as never)
-  await fastify.register(authRoutes)
+  await registerAuthRoutes(fastify)
   return { fastify, db }
 }
 
