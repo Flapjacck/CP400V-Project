@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs'
 import rateLimit from '@fastify/rate-limit'
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import {
   REFRESH_COOKIE_NAME,
+  findValidRefreshToken,
   newRefreshToken,
   refreshCookieOptions,
+  revokeRefreshToken,
   saveRefreshToken,
 } from '../lib/tokens.js'
 
@@ -56,6 +58,14 @@ const authResponseSchema = {
   },
 } as const
 
+const unauthorizedSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    error: { type: 'string' },
+  },
+} as const
+
 type SignupBody = {
   email: string
   password: string
@@ -96,7 +106,12 @@ function isUniqueViolation(err: unknown): boolean {
   )
 }
 
-// Refresh and logout are added in #22.
+// Path must match refreshCookieOptions or the browser keeps a stale cookie.
+const REFRESH_COOKIE_CLEAR = { path: '/api/auth' } as const
+
+function clearRefreshCookie(reply: FastifyReply) {
+  reply.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_CLEAR)
+}
 
 const auth: FastifyPluginAsync = async (fastify) => {
   // Only routes that set config.rateLimit are capped; signup stays open.
@@ -228,6 +243,62 @@ const auth: FastifyPluginAsync = async (fastify) => {
       })
     }
   )
+
+  fastify.post(
+    '/api/auth/refresh',
+    {
+      schema: {
+        response: {
+          200: authResponseSchema,
+          401: unauthorizedSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const raw = request.cookies[REFRESH_COOKIE_NAME]
+      if (!raw) {
+        clearRefreshCookie(reply)
+        return reply.code(401).send({ error: 'Unauthorized' })
+      }
+
+      const session = await findValidRefreshToken(fastify.db, raw)
+      if (!session) {
+        clearRefreshCookie(reply)
+        return reply.code(401).send({ error: 'Unauthorized' })
+      }
+
+      const { rows } = await fastify.db.query<UserRow>(
+        `SELECT id, email, display_name, bio, role
+         FROM users WHERE id = $1`,
+        [session.userId]
+      )
+      const user = rows[0]
+      if (!user) {
+        clearRefreshCookie(reply)
+        return reply.code(401).send({ error: 'Unauthorized' })
+      }
+
+      // Role may have changed since the last JWT was issued.
+      const accessToken = await reply.jwtSign({
+        sub: user.id,
+        role: user.role,
+      })
+
+      return reply.code(200).send({
+        accessToken,
+        user: toUserJson(user),
+      })
+    }
+  )
+
+  fastify.post('/api/auth/logout', async (request, reply) => {
+    const raw = request.cookies[REFRESH_COOKIE_NAME]
+    if (raw) {
+      await revokeRefreshToken(fastify.db, raw)
+    }
+    clearRefreshCookie(reply)
+    return reply.code(204).send()
+  })
 }
 
 export default auth
