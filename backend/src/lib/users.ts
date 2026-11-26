@@ -40,6 +40,45 @@ export function toUserJson(row: UserRow) {
   }
 }
 
+export type PublicUserRow = Pick<
+  UserRow,
+  'id' | 'display_name' | 'bio' | 'created_at'
+>
+
+// Public lookup never selects email or role, so they cannot leak in the row.
+export const PUBLIC_USER_COLUMNS = 'id, display_name, bio, created_at'
+
+export const publicUserSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string' },
+    displayName: { type: 'string' },
+    bio: { type: 'string' },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+} as const
+
+export function toPublicUserJson(row: PublicUserRow) {
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    bio: row.bio,
+    createdAt: row.created_at.toISOString(),
+  }
+}
+
+export async function findPublicUserById(
+  db: Queryable,
+  id: string
+): Promise<PublicUserRow | null> {
+  const { rows } = await db.query(
+    `SELECT ${PUBLIC_USER_COLUMNS} FROM users WHERE id = $1`,
+    [id]
+  )
+  return (rows[0] as PublicUserRow | undefined) ?? null
+}
+
 export async function findUserById(
   db: Queryable,
   id: string
