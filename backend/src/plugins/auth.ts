@@ -1,4 +1,4 @@
-// JWT access tokens plus cookies for refresh (signup sets the cookie; login comes later).
+// JWT access tokens plus cookies for refresh (signup and login set it, refresh and logout read it).
 import fp from 'fastify-plugin'
 import cookie from '@fastify/cookie'
 import jwt from '@fastify/jwt'
@@ -36,26 +36,22 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     sign: { expiresIn: '15m' },
   })
 
-  fastify.decorate(
-    'authenticate',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        await request.jwtVerify()
-      } catch {
-        return reply.code(401).send({ error: 'Unauthorized' })
-      }
+  async function authenticate(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      await request.jwtVerify()
+    } catch {
+      return reply.code(401).send({ error: 'Unauthorized' })
     }
-  )
+  }
 
-  // Verifies JWT on its own so routes do not have to chain authenticate first.
+  fastify.decorate('authenticate', authenticate)
+
+  // Runs authenticate itself so admin routes need only one preHandler.
   fastify.decorate(
     'requireAdmin',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        await request.jwtVerify()
-      } catch {
-        return reply.code(401).send({ error: 'Unauthorized' })
-      }
+      await authenticate(request, reply)
+      if (reply.sent) return
       if (request.user.role !== 'admin') {
         return reply.code(403).send({ error: 'Forbidden' })
       }
