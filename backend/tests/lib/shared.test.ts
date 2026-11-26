@@ -26,6 +26,7 @@ test('toUserJson never includes password_hash', () => {
     display_name: 'A',
     bio: '',
     role: 'user',
+    created_at: new Date('2025-01-02T03:04:05.000Z'),
     password_hash: 'secret',
   })
   assert.deepStrictEqual(json, {
@@ -34,6 +35,7 @@ test('toUserJson never includes password_hash', () => {
     displayName: 'A',
     bio: '',
     role: 'user',
+    createdAt: '2025-01-02T03:04:05.000Z',
   })
 })
 
