@@ -58,6 +58,16 @@ export async function revokeRefreshToken(
   )
 }
 
+export async function revokeAllRefreshTokens(
+  db: Queryable,
+  userId: string
+): Promise<void> {
+  await db.query(
+    `UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+    [userId]
+  )
+}
+
 export function refreshCookieOptions(): {
   httpOnly: boolean
   sameSite: 'strict'
