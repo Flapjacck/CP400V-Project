@@ -1,0 +1,8 @@
+// One shared check so every missing setting fails at boot with the same message.
+export function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing env: ${name}`)
+  }
+  return value
+}

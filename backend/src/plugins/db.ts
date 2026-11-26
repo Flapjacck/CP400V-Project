@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin'
 import type { FastifyPluginAsync } from 'fastify'
 import pg from 'pg'
+import { requireEnv } from '../lib/env.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -9,12 +10,8 @@ declare module 'fastify' {
 }
 
 const dbPlugin: FastifyPluginAsync = async (fastify) => {
-  const dbUrl = process.env.DATABASE_URL
-  if (!dbUrl) {
-    throw new Error('Missing env: DATABASE_URL')
-  }
   const pool = new pg.Pool({
-    connectionString: dbUrl,
+    connectionString: requireEnv('DATABASE_URL'),
     connectionTimeoutMillis: 2000,
   })
   pool.on('error', (err) => {

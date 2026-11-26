@@ -6,6 +6,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 import type { Readable } from 'node:stream'
+import { requireEnv } from './env.js'
 
 export type StorageConfig = {
   endpoint: string
@@ -20,14 +21,6 @@ export type ObjectStreamResult = {
   contentType: string
   contentLength: number | undefined
   contentRange: string | undefined
-}
-
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(`Missing env: ${name}`)
-  }
-  return value
 }
 
 export function storageConfigFromEnv(): StorageConfig {
