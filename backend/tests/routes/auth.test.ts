@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import Fastify, { type FastifyInstance } from 'fastify'
 import authPlugin from '../../src/plugins/auth.js'
 import authRoutes from '../../src/routes/auth.js'
+import { hashToken } from '../../src/lib/tokens.js'
 
 const TEST_SECRET =
   'test-jwt-secret-at-least-32-characters-long-for-unit-tests'
@@ -18,56 +19,116 @@ before(() => {
 
 type QueryCall = { text: string; params?: unknown[] }
 
-function createFakeDb(options: { duplicateEmail?: boolean } = {}) {
+function createFakeDb(
+  options: {
+    duplicateEmail?: boolean
+    refreshLookupFails?: boolean
+    missingUserOnRefresh?: boolean
+  } = {}
+) {
   const calls: QueryCall[] = []
   let sawRollback = false
+  const validRefreshHashes = new Set<string>()
+  const revokedRefreshHashes = new Set<string>()
 
-  const client = {
-    query: async (text: string, params?: unknown[]) => {
-      calls.push({ text, params })
-      const t = text.trim()
-      if (t === 'BEGIN' || t === 'COMMIT' || t === 'ROLLBACK') {
-        if (t === 'ROLLBACK') sawRollback = true
-        return { rows: [] }
+  const queryImpl = async (text: string, params?: unknown[]) => {
+    calls.push({ text, params })
+    const t = text.trim()
+    if (t === 'BEGIN' || t === 'COMMIT' || t === 'ROLLBACK') {
+      if (t === 'ROLLBACK') sawRollback = true
+      return { rows: [] }
+    }
+    if (text.includes('INSERT INTO users')) {
+      if (options.duplicateEmail) {
+        throw { code: '23505' }
       }
-      if (text.includes('INSERT INTO users')) {
-        if (options.duplicateEmail) {
-          throw { code: '23505' }
-        }
+      return {
+        rows: [
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            email: params?.[0],
+            display_name: params?.[2],
+            bio: '',
+            role: 'user',
+          },
+        ],
+      }
+    }
+    if (text.includes('FROM users WHERE email')) {
+      if (params?.[0] === SEED_EMAIL) {
         return {
           rows: [
             {
-              id: '11111111-1111-1111-1111-111111111111',
-              email: params?.[0],
-              display_name: params?.[2],
+              id: SEED_USER_ID,
+              email: SEED_EMAIL,
+              password_hash: SEED_PASSWORD_HASH,
+              display_name: 'Admin',
               bio: '',
-              role: 'user',
+              role: 'admin',
             },
           ],
         }
       }
-      if (text.includes('FROM users WHERE email')) {
-        if (params?.[0] === SEED_EMAIL) {
-          return {
-            rows: [
-              {
-                id: SEED_USER_ID,
-                email: SEED_EMAIL,
-                password_hash: SEED_PASSWORD_HASH,
-                display_name: 'Admin',
-                bio: '',
-                role: 'admin',
-              },
-            ],
-          }
-        }
+      return { rows: [] }
+    }
+    if (
+      text.includes('FROM users WHERE id') ||
+      text.includes('FROM users\n         WHERE id')
+    ) {
+      if (options.missingUserOnRefresh) {
         return { rows: [] }
       }
-      if (text.includes('INSERT INTO refresh_tokens')) {
-        return { rows: [] }
+      if (params?.[0] === SEED_USER_ID) {
+        return {
+          rows: [
+            {
+              id: SEED_USER_ID,
+              email: SEED_EMAIL,
+              display_name: 'Admin',
+              bio: '',
+              role: 'admin',
+            },
+          ],
+        }
       }
       return { rows: [] }
-    },
+    }
+    if (text.includes('INSERT INTO refresh_tokens')) {
+      const tokenHash = String(params?.[1] ?? '')
+      validRefreshHashes.add(tokenHash)
+      return { rows: [] }
+    }
+    if (text.includes('FROM refresh_tokens')) {
+      if (options.refreshLookupFails) {
+        return { rows: [] }
+      }
+      const tokenHash = String(params?.[0] ?? '')
+      if (
+        revokedRefreshHashes.has(tokenHash) ||
+        !validRefreshHashes.has(tokenHash)
+      ) {
+        return { rows: [] }
+      }
+      return {
+        rows: [
+          {
+            id: '22222222-2222-2222-2222-222222222222',
+            userId: SEED_USER_ID,
+          },
+        ],
+      }
+    }
+    if (text.includes('UPDATE refresh_tokens SET revoked_at')) {
+      const tokenHash = String(params?.[0] ?? '')
+      revokedRefreshHashes.add(tokenHash)
+      validRefreshHashes.delete(tokenHash)
+      return { rows: [] }
+    }
+    return { rows: [] }
+  }
+
+  const client = {
+    query: queryImpl,
     release: () => {},
   }
 
@@ -122,7 +183,7 @@ async function injectLogin(
   return { res, db }
 }
 
-async function createLoginFastify(
+async function createAuthFastify(
   db = createFakeDb()
 ): Promise<{ fastify: FastifyInstance; db: ReturnType<typeof createFakeDb> }> {
   const fastify = Fastify({
@@ -284,8 +345,35 @@ test('extra field returns 400 on login', async () => {
   assert.strictEqual(res.statusCode, 400)
 })
 
+function cookieValueFromSetCookie(
+  setCookie: string | string[] | undefined
+): string | undefined {
+  if (!setCookie) return undefined
+  const cookieStr = Array.isArray(setCookie) ? setCookie[0] : setCookie
+  return cookieStr.split(';')[0].split('=').slice(1).join('=')
+}
+
+async function loginAndGetRefreshCookie(
+  db = createFakeDb()
+): Promise<{
+  refreshCookie: string
+  db: ReturnType<typeof createFakeDb>
+  fastify: FastifyInstance
+}> {
+  const { fastify, db: authDb } = await createAuthFastify(db)
+  const loginRes = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: validLogin,
+  })
+  assert.strictEqual(loginRes.statusCode, 200)
+  const refreshCookie = cookieValueFromSetCookie(loginRes.headers['set-cookie'])
+  assert.ok(refreshCookie)
+  return { refreshCookie, db: authDb, fastify }
+}
+
 test('login rate limit returns 429 after 5 failed attempts', async () => {
-  const { fastify } = await createLoginFastify()
+  const { fastify } = await createAuthFastify()
   const bad = { email: SEED_EMAIL, password: 'bad' }
   for (let i = 0; i < 5; i++) {
     const res = await fastify.inject({
@@ -301,5 +389,109 @@ test('login rate limit returns 429 after 5 failed attempts', async () => {
     payload: bad,
   })
   assert.strictEqual(sixth.statusCode, 429)
+  await fastify.close()
+})
+
+test('refresh with valid cookie returns 200 and admin role in JWT', async () => {
+  const { fastify, refreshCookie } = await loginAndGetRefreshCookie()
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    cookies: { refresh_token: refreshCookie },
+  })
+  assert.strictEqual(res.statusCode, 200)
+  const body = res.json() as {
+    accessToken: string
+    user: Record<string, unknown>
+  }
+  assert.ok(body.accessToken.length > 0)
+  assert.strictEqual(body.user.role, 'admin')
+  const jwtPart = body.accessToken.split('.')[1]
+  const payload = JSON.parse(
+    Buffer.from(jwtPart, 'base64url').toString('utf8')
+  )
+  assert.strictEqual(payload.role, 'admin')
+  await fastify.close()
+})
+
+test('refresh with no cookie returns 401', async () => {
+  const { fastify } = await createAuthFastify()
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+  })
+  assert.strictEqual(res.statusCode, 401)
+  assert.deepStrictEqual(res.json(), { error: 'Unauthorized' })
+  await fastify.close()
+})
+
+test('refresh with invalid or revoked token returns 401 and clears cookie', async () => {
+  const db = createFakeDb({ refreshLookupFails: true })
+  const { fastify, refreshCookie } = await loginAndGetRefreshCookie(db)
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    cookies: { refresh_token: refreshCookie },
+  })
+  assert.strictEqual(res.statusCode, 401)
+  const cleared = res.headers['set-cookie']
+  assert.ok(cleared)
+  const cookieStr = Array.isArray(cleared) ? cleared[0] : cleared
+  assert.match(cookieStr, /refresh_token=;/)
+  await fastify.close()
+
+  const { fastify: fastify2 } = await createAuthFastify()
+  const unknown = await fastify2.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    cookies: { refresh_token: 'not-a-stored-token' },
+  })
+  assert.strictEqual(unknown.statusCode, 401)
+  await fastify2.close()
+})
+
+test('logout with cookie returns 204, revokes hash, and clears cookie', async () => {
+  const { fastify, refreshCookie, db } = await loginAndGetRefreshCookie()
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/logout',
+    cookies: { refresh_token: refreshCookie },
+  })
+  assert.strictEqual(res.statusCode, 204)
+  assert.strictEqual(res.body, '')
+  const cleared = res.headers['set-cookie']
+  assert.ok(cleared)
+  const revoke = db.calls.find((c) =>
+    c.text.includes('UPDATE refresh_tokens SET revoked_at')
+  )
+  assert.ok(revoke)
+  assert.strictEqual(revoke.params?.[0], hashToken(refreshCookie))
+  await fastify.close()
+})
+
+test('logout with no cookie still returns 204', async () => {
+  const { fastify } = await createAuthFastify()
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/logout',
+  })
+  assert.strictEqual(res.statusCode, 204)
+  await fastify.close()
+})
+
+test('refresh after logout returns 401', async () => {
+  const { fastify, refreshCookie } = await loginAndGetRefreshCookie()
+  const logout = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/logout',
+    cookies: { refresh_token: refreshCookie },
+  })
+  assert.strictEqual(logout.statusCode, 204)
+  const res = await fastify.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    cookies: { refresh_token: refreshCookie },
+  })
+  assert.strictEqual(res.statusCode, 401)
   await fastify.close()
 })
