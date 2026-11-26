@@ -1,16 +1,11 @@
 // Refresh tokens live in a cookie; Postgres only keeps a SHA-256 hash of the raw value.
 import { createHash, randomBytes } from 'node:crypto'
+import type { FastifyReply } from 'fastify'
+import type { Queryable } from './db.js'
+import type { Role } from './users.js'
 
 export const REFRESH_TOKEN_TTL_DAYS = 7
 export const REFRESH_COOKIE_NAME = 'refresh_token'
-
-// Pool or transaction client — same query shape either way.
-export interface Queryable {
-  query: (
-    text: string,
-    params?: unknown[]
-  ) => Promise<{ rows: Record<string, unknown>[] }>
-}
 
 export function newRefreshToken(): string {
   return randomBytes(32).toString('base64url')
@@ -79,4 +74,17 @@ export function refreshCookieOptions(): {
     // Do not tie Secure to NODE_ENV; the image sets production even on localhost.
     secure: process.env.COOKIE_SECURE === 'true',
   }
+}
+
+// Path must match refreshCookieOptions or the browser keeps a stale cookie.
+export function clearRefreshCookie(reply: FastifyReply): void {
+  reply.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/auth' })
+}
+
+// One place for the JWT payload so signup, login and refresh stay in sync.
+export function signAccessToken(
+  reply: FastifyReply,
+  user: { id: string; role: Role }
+): Promise<string> {
+  return reply.jwtSign({ sub: user.id, role: user.role })
 }
