@@ -23,12 +23,24 @@ Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars
 | ------ | ---- | ----- |
 | POST | `/api/auth/signup` | Create user; returns access token and sets refresh cookie |
 | POST | `/api/auth/login` | Same response shape; **5 requests per minute per IP** (429 after that) |
+| POST | `/api/auth/refresh` | Uses the refresh cookie; returns a new access token and the current user |
+| POST | `/api/auth/logout` | Revokes this browser's refresh token; always 204 |
 
 ## Layout
 
-- `src/plugins/` — `db`, `auth` (JWT and cookies), and `storage`, registered in `app.ts` before routes
-- `src/lib/storage.ts` — `Storage` class used by the plugin and scripts
-- `src/scripts/storage-smoke.ts` — put/get/delete check against MinIO; builds to `dist/scripts/storage-smoke.js`
+- `src/routes/` holds one file per route, grouped by area (for example `routes/auth/login.ts`). Autoload picks them up. Folder names do not change the URL, so each file writes its full `/api/...` path.
+- `src/plugins/` wires shared things into the app once at startup: `db`, `auth` (JWT, cookies, `authenticate`, `requireAdmin`), `storage` and `rate-limit`. Routes use them through `fastify.db`, `fastify.storage` and so on.
+- `src/lib/` holds plain functions with no Fastify setup, so routes and tests can import them directly:
+  - `env.ts`: `requireEnv` for required settings
+  - `db.ts`: `Queryable` (pool or transaction client) and `isUniqueViolation`
+  - `users.ts`: `UserRow`, `USER_COLUMNS`, `findUserById`, `toUserJson`, `userResponseSchema`
+  - `passwords.ts`: `hashPassword`, `verifyPassword`, `newPasswordSchema`
+  - `tokens.ts`: refresh tokens, cookie helpers and `signAccessToken`
+  - `schemas.ts`: `errorSchema` and `authResponseSchema`
+  - `storage.ts`: `Storage` class used by the plugin and scripts
+- `src/scripts/storage-smoke.ts` is a put/get/delete check against MinIO; builds to `dist/scripts/storage-smoke.js`
+
+New code that other routes could use goes in `lib/`. Do not put helpers inside `routes/`, or autoload will try to load them as routes.
 
 ## Run locally
 
