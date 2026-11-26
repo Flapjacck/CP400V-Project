@@ -29,7 +29,7 @@ curl -i -c cookies.txt \
   http://localhost:8080/api/auth/signup
 ```
 
-Response **201**: `{ "accessToken": "...", "user": { "id", "email", "displayName", "bio", "role" } }`. The `refresh_token` cookie is set for `/api/auth`.
+Response **201**: `{ "accessToken": "...", "user": { "id", "email", "displayName", "bio", "role", "createdAt" } }`. The `refresh_token` cookie is set for `/api/auth`.
 
 ## Log in
 
@@ -63,6 +63,23 @@ curl -i -b cookies.txt -c cookies.txt \
 ```
 
 Always **204** with no body. When the cookie is present, the server revokes that refresh token and clears the cookie. A later refresh then returns **401**.
+
+## Your profile
+
+```sh
+curl -H "Authorization: Bearer <accessToken>" \
+  http://localhost:8080/api/me
+
+curl -X PATCH \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'content-type: application/json' \
+  -d '{"displayName":"New Name","bio":"Hello"}' \
+  http://localhost:8080/api/me
+```
+
+Both return **200** with `{ "id", "email", "displayName", "bio", "role", "createdAt" }`. Email is only returned to its owner.
+
+`PATCH` accepts `displayName` (1-50 characters, trimmed) and `bio` (up to 500 characters, trimmed). Send at least one. Any other field (including `role` and `email`), an empty body, a blank `displayName` or a too-long value returns **400** (Fastify validation errors, or `{ "error": "Bad Request" }` for a blank name). A missing, invalid or expired token, or a user that no longer exists, returns **401** with `{ "error": "Unauthorized" }`.
 
 Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 

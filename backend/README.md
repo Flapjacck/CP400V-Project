@@ -26,6 +26,13 @@ Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars
 | POST | `/api/auth/refresh` | Uses the refresh cookie; returns a new access token and the current user |
 | POST | `/api/auth/logout` | Revokes this browser's refresh token; always 204 |
 
+## Profile routes
+
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| GET | `/api/me` | Current user (includes email and `createdAt`); 401 if the token or user is gone |
+| PATCH | `/api/me` | Update `displayName` and/or `bio` only; `role`, `email` and unknown fields are 400 |
+
 ## Layout
 
 - `src/routes/` holds one file per route, grouped by area (for example `routes/auth/login.ts`). Autoload picks them up. Folder names do not change the URL, so each file writes its full `/api/...` path.
@@ -33,7 +40,7 @@ Compose sets these from `.env`. For `pnpm dev` on the host, export the same vars
 - `src/lib/` holds plain functions with no Fastify setup, so routes and tests can import them directly:
   - `env.ts`: `requireEnv` for required settings
   - `db.ts`: `Queryable` (pool or transaction client) and `isUniqueViolation`
-  - `users.ts`: `UserRow`, `USER_COLUMNS`, `findUserById`, `toUserJson`, `userResponseSchema`
+  - `users.ts`: `UserRow`, `USER_COLUMNS`, `findUserById`, `updateUserProfile`, `toUserJson`, `userResponseSchema`
   - `passwords.ts`: `hashPassword`, `verifyPassword`, `newPasswordSchema`
   - `tokens.ts`: refresh tokens, cookie helpers and `signAccessToken`
   - `schemas.ts`: `errorSchema` and `authResponseSchema`
