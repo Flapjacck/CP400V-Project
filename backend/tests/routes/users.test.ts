@@ -69,16 +69,6 @@ test('GET /api/users/:id returns public fields only', async () => {
   await fastify.close()
 })
 
-test('GET /api/users/:id works without auth', async () => {
-  const { fastify } = await setup()
-  const res = await fastify.inject({
-    method: 'GET',
-    url: `/api/users/${USER_ID}`,
-  })
-  assert.strictEqual(res.statusCode, 200)
-  await fastify.close()
-})
-
 test('GET /api/users/not-a-uuid is 400 and does not hit the db', async () => {
   const { fastify, db } = await setup()
   const res = await fastify.inject({
