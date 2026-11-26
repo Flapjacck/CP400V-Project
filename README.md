@@ -83,6 +83,16 @@ Both return **200** with `{ "id", "email", "displayName", "bio", "role", "create
 
 Copy `.env.example` to `.env` and set at least `APP_DB_USER`, `APP_DB_PASSWORD`, `S3_BUCKET`, `S3_REGION`, and `JWT_SECRET` (32+ characters; defaults are fine for local work).
 
+## Public profiles
+
+```sh
+curl http://localhost:8080/api/users/<id>
+```
+
+Response **200**: `{ "id", "displayName", "bio", "createdAt" }`. No login is required. Email and role are never included.
+
+A non-UUID id (for example `/api/users/not-a-uuid`) returns **400** with `{ "error": ... }`. An id that is a valid UUID but not in the database returns **404** with `{ "error": "Not Found" }`.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |
