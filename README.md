@@ -160,6 +160,14 @@ curl -OJ http://localhost:8080/api/tracks/<track-id>/download
 
 Both routes are public. Without a Range header they return **200** with the whole file. A single Range returns **206** with `Content-Range`; a bad or out-of-bounds range returns **416**. Download adds `Content-Disposition: attachment` with a filename made from the title. An invalid id returns **400**, and a missing track returns **404**.
 
+## Count a play
+
+```sh
+curl -X POST http://localhost:8080/api/tracks/<track-id>/play
+```
+
+The route is public and returns **200** with `{ "playCount": <n> }`. An invalid id returns **400**, and a missing track returns **404**. More than 30 calls a minute from one IP returns **429**. The new count shows up as `playCount` in `GET /api/tracks/:id`.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |
