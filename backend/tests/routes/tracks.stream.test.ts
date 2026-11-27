@@ -154,12 +154,15 @@ test('parseRange accepts supported single ranges and rejects unsupported ones', 
   assert.deepStrictEqual(parseRange('bytes=1-2', 1000), { kind: 'partial', start: 1, end: 2 })
   assert.deepStrictEqual(parseRange('bytes=-100', 1000), { kind: 'partial', start: 900, end: 999 })
   assert.deepStrictEqual(parseRange('bytes=0-5000', 1000), { kind: 'partial', start: 0, end: 999 })
-  for (const header of ['bytes=0-1,5-9', 'bytes=2-1', 'bytes=-0', 'bytes=0-']) {
-    assert.deepStrictEqual(parseRange(header, 0), { kind: 'invalid' })
+  for (const header of ['bytes=0-1,5-9', 'bytes=2-1', 'bytes=-0', 'bytes=1000-', 'bytes=abc']) {
+    assert.deepStrictEqual(parseRange(header, 1000), { kind: 'invalid' })
   }
+  // An empty file has no bytes to serve, so any range is unsatisfiable.
+  assert.deepStrictEqual(parseRange('bytes=0-', 0), { kind: 'invalid' })
 })
 
 test('contentDispositionFilename normalizes titles and chooses known extensions', () => {
   assert.strictEqual(contentDispositionFilename('My Song!', 'audio/mpeg'), 'my-song.mp3')
   assert.strictEqual(contentDispositionFilename('!!!', 'audio/unknown'), 'track')
+  assert.strictEqual(contentDispositionFilename(`${'a'.repeat(79)} b`, 'audio/mpeg'), `${'a'.repeat(79)}.mp3`)
 })

@@ -40,8 +40,9 @@ export function contentDispositionFilename(
     title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80) || 'track'
+      .slice(0, 80)
+      // Trim after the cap so a cut title cannot end in a dash.
+      .replace(/^-+|-+$/g, '') || 'track'
   const extension = Object.entries(DETECTED_AUDIO_TYPES).find(
     ([, type]) => type === contentType
   )?.[0]
