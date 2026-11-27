@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import type { Readable } from 'node:stream'
 import { requireEnv } from './env.js'
 
@@ -67,6 +68,23 @@ export class Storage {
         ContentType: contentType,
       })
     )
+  }
+
+  async uploadObject(
+    key: string,
+    body: Readable,
+    contentType: string
+  ): Promise<void> {
+    // Upload streams multipart data so audio is never collected in application memory.
+    await new Upload({
+      client: this.client,
+      params: {
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      },
+    }).done()
   }
 
   async getObjectStream(
