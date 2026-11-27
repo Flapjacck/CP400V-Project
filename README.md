@@ -151,6 +151,15 @@ curl -X DELETE \
 
 Only the owner can edit or delete a track. PATCH returns **200** with the updated track and DELETE returns **204**. Invalid input returns **400**, a missing or invalid token returns **401**, another user's track returns **403**, and a missing track returns **404**.
 
+## Stream or download a track
+
+```sh
+curl -r 0-99 -o part.bin -D - http://localhost:8080/api/tracks/<track-id>/stream
+curl -OJ http://localhost:8080/api/tracks/<track-id>/download
+```
+
+Both routes are public. Without a Range header they return **200** with the whole file. A single Range returns **206** with `Content-Range`; a bad or out-of-bounds range returns **416**. Download adds `Content-Disposition: attachment` with a filename made from the title. An invalid id returns **400**, and a missing track returns **404**.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |
