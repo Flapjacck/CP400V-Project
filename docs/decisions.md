@@ -28,3 +28,6 @@ Two workflows on PRs and `main`: backend runs unit tests, `tsc`, and replays `db
 
 ## Track lists use keyset paging on (created_at, id)
 Track lists use keyset rather than offset paging, so later pages do not drift as new uploads arrive and Postgres does not scan skipped rows. The cursor is a track id: Postgres looks up its `created_at` without losing microsecond precision to a JavaScript date, and `id` breaks ties for uploads with the same timestamp.
+
+## Track edits check the owner in SQL; deletes remove the row before the file
+Track edits and deletes include the owner in their SQL `WHERE` clause, avoiding a check-then-write race. Deletes remove the database row before the object; a failed object deletion is logged because a stray file is safer than a track that points to nothing.

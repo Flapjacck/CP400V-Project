@@ -135,6 +135,22 @@ All routes are public. The list routes return `{ "tracks": [ ... ], "nextBefore"
 
 An invalid id, invalid query, or unknown `before` cursor returns **400**. A missing track or user returns **404**. Successful list and get requests return **200**.
 
+## Edit or delete a track
+
+```sh
+curl -X PATCH \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Renamed song","description":"Updated description"}' \
+  http://localhost:8080/api/tracks/<track-id>
+
+curl -X DELETE \
+  -H "Authorization: Bearer <accessToken>" \
+  http://localhost:8080/api/tracks/<track-id>
+```
+
+Only the owner can edit or delete a track. PATCH returns **200** with the updated track and DELETE returns **204**. Invalid input returns **400**, a missing or invalid token returns **401**, another user's track returns **403**, and a missing track returns **404**.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |
