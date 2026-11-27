@@ -20,5 +20,8 @@ Passwords use bcryptjs at cost 10 so the backend stays pure JS on Alpine and can
 ## Audio streams through Fastify in the prototype
 Playback goes through the API so the browser only talks to the edge URL. Presigned S3 URLs are the cloud design, but they target one host and MinIO has no public port on `data`. The storage helper is still the real AWS SDK so only the endpoint changes for production S3.
 
+## Uploads go through Fastify with a magic-byte check
+Multipart audio streams through Fastify to MinIO, with a 50 MB cap in Fastify and Nginx. We allow only detected audio formats, rather than trusting the client MIME type, save the file before its row, and clean it up if the insert fails. Presigned uploads remain the cloud design.
+
 ## GitHub Actions CI
 Two workflows on PRs and `main`: backend runs unit tests, `tsc`, and replays `db/init/` against Postgres 16; frontend runs Vite build and oxlint. Database checks live in the backend workflow because the schema and seeds are what the API depends on. Path filters skip unrelated edits; `workflow_dispatch` allows a manual run.
