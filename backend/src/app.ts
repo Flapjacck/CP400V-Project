@@ -4,6 +4,7 @@ import AutoLoad from '@fastify/autoload'
 import type { FastifyPluginAsync } from 'fastify'
 import authPlugin from './plugins/auth.js'
 import dbPlugin from './plugins/db.js'
+import multipartPlugin from './plugins/multipart.js'
 import rateLimitPlugin from './plugins/rate-limit.js'
 import storagePlugin from './plugins/storage.js'
 
@@ -17,6 +18,7 @@ const app: FastifyPluginAsync = async (fastify, opts) => {
   await fastify.register(authPlugin)
   await fastify.register(storagePlugin)
   await fastify.register(rateLimitPlugin)
+  await fastify.register(multipartPlugin)
   await fastify.register(AutoLoad, {
     dir: path.join(__dirname, 'routes'),
     // Routes write their full /api/... path, so folders only group files.
