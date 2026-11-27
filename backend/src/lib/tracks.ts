@@ -62,6 +62,34 @@ export const trackPageQuerySchema = {
   },
 } as const
 
+export const trackIdParamsSchema = {
+  type: 'object',
+  required: ['id'],
+  additionalProperties: false,
+  properties: { id: { type: 'string', format: 'uuid' } },
+} as const
+
+export const TITLE_MAX = 100
+export const DESCRIPTION_MAX = 2000
+
+type TrackFields = { title?: string; description?: string }
+
+// Uploads and edits share these rules so their accepted text cannot drift.
+export function cleanTrackFields(fields: TrackFields): TrackFields | null {
+  const title = fields.title?.trim()
+  const description = fields.description?.trim()
+  if (
+    (fields.title !== undefined && (!title || title.length > TITLE_MAX)) ||
+    (description !== undefined && description.length > DESCRIPTION_MAX)
+  ) {
+    return null
+  }
+  return { title, description }
+}
+
+// A class keeps cursor handling stable when its human-readable message changes.
+export class UnknownCursorError extends Error {}
+
 export function toTrackJson(row: TrackRow) {
   return {
     id: row.id,
@@ -104,7 +132,7 @@ async function listTracks(
     const { rows } = await db.query('SELECT id FROM tracks WHERE id = $1', [
       options.before,
     ])
-    if (rows.length === 0) throw new Error('Unknown track cursor')
+    if (rows.length === 0) throw new UnknownCursorError('Unknown track cursor')
   }
 
   const params: unknown[] = []
@@ -188,4 +216,48 @@ export async function insertTrack(
     ]
   )
   return rows[0] as TrackRow
+}
+
+export async function updateTrack(
+  db: Queryable,
+  id: string,
+  ownerId: string,
+  fields: TrackFields
+): Promise<TrackRow | null> {
+  const values: string[] = []
+  const updates: string[] = []
+  if (fields.title !== undefined) {
+    values.push(fields.title)
+    updates.push(`title = $${values.length}`)
+  }
+  if (fields.description !== undefined) {
+    values.push(fields.description)
+    updates.push(`description = $${values.length}`)
+  }
+  values.push(id, ownerId)
+  const { rows } = await db.query(
+    `WITH t AS (
+       UPDATE tracks
+       -- Updating the timestamp makes edits visible to clients and ordering rules.
+       SET ${updates.join(', ')}, updated_at = now()
+       WHERE id = $${values.length - 1} AND owner_id = $${values.length}
+       RETURNING *
+     )
+     SELECT t.*, u.display_name AS owner_display_name
+     FROM t JOIN users u ON u.id = t.owner_id`,
+    values
+  )
+  return (rows[0] as TrackRow | undefined) ?? null
+}
+
+export async function deleteTrack(
+  db: Queryable,
+  id: string,
+  ownerId: string
+): Promise<string | null> {
+  const { rows } = await db.query(
+    'DELETE FROM tracks WHERE id = $1 AND owner_id = $2 RETURNING object_key',
+    [id, ownerId]
+  )
+  return (rows[0] as { object_key: string } | undefined)?.object_key ?? null
 }

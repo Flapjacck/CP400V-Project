@@ -7,7 +7,12 @@ import {
   DETECTED_AUDIO_TYPES,
 } from '../../lib/audio.js'
 import { errorSchema } from '../../lib/schemas.js'
-import { insertTrack, toTrackJson, trackSchema } from '../../lib/tracks.js'
+import {
+  cleanTrackFields,
+  insertTrack,
+  toTrackJson,
+  trackSchema,
+} from '../../lib/tracks.js'
 
 function textField(
   fields: Record<string, unknown>,
@@ -64,21 +69,23 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
       }
 
       const fields = file.fields as Record<string, unknown>
-      const title = textField(fields, 'title')?.trim()
-      const description = textField(fields, 'description')?.trim() ?? ''
+      const cleanedFields = cleanTrackFields({
+        title: textField(fields, 'title'),
+        description: textField(fields, 'description') ?? '',
+      })
       const badFields = Object.keys(fields).some(
         // multipart includes the current file in fields as well as prior text parts.
         (name) => name !== 'title' && name !== 'description' && name !== 'file'
       )
       if (
         badFields ||
-        !title ||
-        title.length > 100 ||
-        description.length > 2000
+        !cleanedFields ||
+        !cleanedFields.title
       ) {
         file.file.resume()
         return reply.code(400).send({ error: 'Bad Request' })
       }
+      const { title, description } = cleanedFields
       if (!(ACCEPTED_CLIENT_AUDIO_TYPES as readonly string[]).includes(file.mimetype)) {
         file.file.resume()
         return reply.code(415).send({ error: 'Unsupported Media Type' })
@@ -132,8 +139,8 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
         const row = await insertTrack(fastify.db, {
           id: trackId,
           ownerId: request.user.sub,
-          title,
-          description,
+          title: title!,
+          description: description!,
           objectKey: key,
           contentType,
           sizeBytes,

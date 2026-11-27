@@ -5,6 +5,7 @@ import {
   toTrackJson,
   trackPageQuerySchema,
   trackPageSchema,
+  UnknownCursorError,
 } from '../../lib/tracks.js'
 import { findPublicUserById } from '../../lib/users.js'
 
@@ -39,7 +40,7 @@ const listUserTracks: FastifyPluginAsync = async (fastify) => {
           nextBefore: page.nextBefore,
         })
       } catch (err) {
-        if (err instanceof Error && err.message === 'Unknown track cursor') {
+        if (err instanceof UnknownCursorError) {
           return reply.code(400).send({ error: 'Bad Request' })
         }
         throw err
