@@ -110,6 +110,19 @@ Response **200**: `{ "id", "displayName", "bio", "createdAt" }`. No login is req
 
 A non-UUID id (for example `/api/users/not-a-uuid`) returns **400** with `{ "error": ... }`. An id that is a valid UUID but not in the database returns **404** with `{ "error": "Not Found" }`.
 
+## Upload a track
+
+```sh
+curl -X POST \
+  -H "Authorization: Bearer <accessToken>" \
+  -F 'title=My song' \
+  -F 'description=A short description' \
+  -F 'file=@song.mp3;type=audio/mpeg' \
+  http://localhost:8080/api/tracks
+```
+
+Response **201**: `{ "id", "title", "description", "contentType", "sizeBytes", "playCount", "createdAt", "updatedAt", "owner" }`. Missing or invalid form fields return **400**, a missing or invalid token returns **401**, files over 50 MB return **413**, and an unsupported client or detected audio type returns **415**.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |
