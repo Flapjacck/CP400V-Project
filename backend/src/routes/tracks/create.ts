@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { Readable, Transform } from 'node:stream'
+import { pipeline, Readable, Transform } from 'node:stream'
 import type { FastifyPluginAsync } from 'fastify'
 import { fileTypeStream } from 'file-type'
 import {
@@ -108,7 +108,8 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
         // Store the detected type while the upload remains a stream end to end.
         await fastify.storage.uploadObject(
           key,
-          Readable.fromWeb(detectedStream).pipe(counter),
+          // Pipeline must reach the upload with source errors or an abort crashes the process.
+          pipeline(Readable.fromWeb(detectedStream), counter, () => {}),
           contentType
         )
         if (file.file.truncated) {
@@ -116,11 +117,11 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
           return reply.code(413).send({ error: 'Payload Too Large' })
         }
       } catch (err) {
+        await deleteAfterFailure(fastify, key)
         if (
           file.file.truncated ||
           (err as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE'
         ) {
-          await deleteAfterFailure(fastify, key)
           return reply.code(413).send({ error: 'Payload Too Large' })
         }
         throw err
