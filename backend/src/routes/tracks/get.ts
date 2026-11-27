@@ -1,18 +1,18 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { errorSchema } from '../../lib/schemas.js'
-import { findTrackById, toTrackJson, trackSchema } from '../../lib/tracks.js'
+import {
+  findTrackById,
+  toTrackJson,
+  trackIdParamsSchema,
+  trackSchema,
+} from '../../lib/tracks.js'
 
 const getTrack: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>(
     '/api/tracks/:id',
     {
       schema: {
-        params: {
-          type: 'object',
-          required: ['id'],
-          additionalProperties: false,
-          properties: { id: { type: 'string', format: 'uuid' } },
-        },
+        params: trackIdParamsSchema,
         response: { 200: trackSchema, 400: errorSchema, 404: errorSchema },
       },
     },
