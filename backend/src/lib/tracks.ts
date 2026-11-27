@@ -266,3 +266,20 @@ export async function deleteTrack(
   )
   return (rows[0] as { object_key: string } | undefined)?.object_key ?? null
 }
+
+export async function incrementPlayCount(
+  db: Queryable,
+  id: string
+): Promise<number | null> {
+  // One atomic UPDATE avoids a read-then-write race for simultaneous plays.
+  // A play is not an edit, so leave updated_at unchanged.
+  const { rows } = await db.query(
+    `UPDATE tracks
+     SET play_count = play_count + 1
+     WHERE id = $1
+     RETURNING play_count`,
+    [id]
+  )
+  const row = rows[0] as { play_count: string } | undefined
+  return row ? Number(row.play_count) : null
+}
