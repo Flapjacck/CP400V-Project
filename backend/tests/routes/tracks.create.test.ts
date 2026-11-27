@@ -1,4 +1,5 @@
 import assert from 'node:assert'
+import net from 'node:net'
 import { before, test } from 'node:test'
 import { Readable } from 'node:stream'
 import Fastify from 'fastify'
@@ -10,7 +11,7 @@ import createTrack from '../../src/routes/tracks/create.js'
 const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const NOW = new Date('2025-01-01T00:00:00Z')
 const MP3 = Buffer.from([0xff, 0xfb, 0x90, 0x00, ...Buffer.alloc(32)])
-
+const ABORT_MP3 = Buffer.concat(Array.from({ length: 400 }, () => MP3))
 before(() => {
   process.env.JWT_SECRET =
     'test-jwt-secret-at-least-32-characters-long-for-unit-tests'
@@ -44,17 +45,25 @@ function multipartBody(
     contentType: `multipart/form-data; boundary=${boundary}`,
   }
 }
-
 function fakeStorage() {
   const puts: { key: string; contentType: string; body: Buffer }[] = []
   const deletes: string[] = []
+  const uploadErrors: { key: string; error: unknown }[] = []
   return {
     puts,
     deletes,
+    uploadErrors,
     storage: {
       uploadObject: async (key, body, contentType) => {
         const chunks: Buffer[] = []
-        for await (const chunk of body as Readable) chunks.push(Buffer.from(chunk))
+        try {
+          for await (const chunk of body as Readable) {
+            chunks.push(Buffer.from(chunk))
+          }
+        } catch (error) {
+          uploadErrors.push({ key, error })
+          throw error
+        }
         puts.push({ key, contentType, body: Buffer.concat(chunks) })
       },
       deleteObject: async (key) => {
@@ -63,7 +72,6 @@ function fakeStorage() {
     } as Storage,
   }
 }
-
 function fakeDb(shouldFail = false) {
   const calls: { text: string; params?: unknown[] }[] = []
   return {
@@ -195,4 +203,48 @@ test('POST /api/tracks removes an uploaded object after an insert failure', asyn
   assert.strictEqual(app.storage.puts.length, 1)
   assert.deepStrictEqual(app.storage.deletes, [app.storage.puts[0].key])
   await app.fastify.close()
+})
+
+test('POST /api/tracks survives a client abort during an upload', async () => {
+  const app = await setup()
+  const uncaught: unknown[] = []
+  const onUncaught = (error: unknown) => uncaught.push(error)
+  process.on('uncaughtException', onUncaught)
+
+  try {
+    await app.fastify.listen({ port: 0, host: '127.0.0.1' })
+    const address = app.fastify.server.address()
+    assert.ok(address && typeof address !== 'string')
+    const boundary = '----abort-test-boundary'
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="title"\r\n\r\nAborted upload\r\n` +
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="song.mp3"\r\nContent-Type: audio/mpeg\r\n\r\n`
+      ),
+      ABORT_MP3,
+    ])
+    const socket = net.createConnection({ host: '127.0.0.1', port: address.port })
+    await new Promise<void>((resolve, reject) => {
+      socket.once('connect', resolve)
+      socket.once('error', reject)
+    })
+    socket.write(
+      `POST /api/tracks HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: ${app.auth.authorization}\r\nContent-Type: multipart/form-data; boundary=${boundary}\r\nContent-Length: ${body.length + 1024 * 1024}\r\n\r\n`
+    )
+    socket.write(body)
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    socket.destroy()
+
+    for (let i = 0; i < 20 && app.storage.uploadErrors.length === 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    assert.strictEqual(app.storage.uploadErrors.length, 1)
+    assert.deepStrictEqual(app.storage.deletes, [app.storage.uploadErrors[0].key])
+    const followUp = await fetch(`http://127.0.0.1:${address.port}/api/tracks`)
+    assert.strictEqual(followUp.status, 404)
+    assert.deepStrictEqual(uncaught, [])
+  } finally {
+    process.off('uncaughtException', onUncaught)
+    await app.fastify.close()
+  }
 })
