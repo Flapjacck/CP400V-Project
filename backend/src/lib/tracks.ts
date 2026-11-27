@@ -73,8 +73,13 @@ export const TITLE_MAX = 100
 export const DESCRIPTION_MAX = 2000
 
 type TrackFields = { title?: string; description?: string }
+type RequiredTrackFields = { title: string; description: string }
 
 // Uploads and edits share these rules so their accepted text cannot drift.
+export function cleanTrackFields(
+  fields: RequiredTrackFields
+): RequiredTrackFields | null
+export function cleanTrackFields(fields: TrackFields): TrackFields | null
 export function cleanTrackFields(fields: TrackFields): TrackFields | null {
   const title = fields.title?.trim()
   const description = fields.description?.trim()
@@ -238,7 +243,7 @@ export async function updateTrack(
   const { rows } = await db.query(
     `WITH t AS (
        UPDATE tracks
-       -- Updating the timestamp makes edits visible to clients and ordering rules.
+       -- Bump updated_at so clients can see when a track was last edited.
        SET ${updates.join(', ')}, updated_at = now()
        WHERE id = $${values.length - 1} AND owner_id = $${values.length}
        RETURNING *

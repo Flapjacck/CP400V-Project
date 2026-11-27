@@ -69,19 +69,16 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
       }
 
       const fields = file.fields as Record<string, unknown>
-      const cleanedFields = cleanTrackFields({
-        title: textField(fields, 'title'),
-        description: textField(fields, 'description') ?? '',
-      })
+      const rawTitle = textField(fields, 'title')
+      const rawDescription = textField(fields, 'description') ?? ''
+      const cleanedFields = rawTitle === undefined
+        ? null
+        : cleanTrackFields({ title: rawTitle, description: rawDescription })
       const badFields = Object.keys(fields).some(
         // multipart includes the current file in fields as well as prior text parts.
         (name) => name !== 'title' && name !== 'description' && name !== 'file'
       )
-      if (
-        badFields ||
-        !cleanedFields ||
-        !cleanedFields.title
-      ) {
+      if (badFields || !cleanedFields) {
         file.file.resume()
         return reply.code(400).send({ error: 'Bad Request' })
       }
@@ -139,8 +136,8 @@ const createTrack: FastifyPluginAsync = async (fastify) => {
         const row = await insertTrack(fastify.db, {
           id: trackId,
           ownerId: request.user.sub,
-          title: title!,
-          description: description!,
+          title,
+          description,
           objectKey: key,
           contentType,
           sizeBytes,
