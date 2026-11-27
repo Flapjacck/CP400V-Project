@@ -123,6 +123,18 @@ curl -X POST \
 
 Response **201**: `{ "id", "title", "description", "contentType", "sizeBytes", "playCount", "createdAt", "updatedAt", "owner" }`. Missing or invalid form fields return **400**, a missing or invalid token returns **401**, files over 50 MB return **413**, and an unsupported client or detected audio type returns **415**.
 
+## Browse tracks
+
+```sh
+curl 'http://localhost:8080/api/tracks?limit=20&before=<track-id>'
+curl http://localhost:8080/api/tracks/<track-id>
+curl 'http://localhost:8080/api/users/<user-id>/tracks?limit=20&before=<track-id>'
+```
+
+All routes are public. The list routes return `{ "tracks": [ ... ], "nextBefore": "<track-id>" | null }`, newest first. `limit` is optional (default **20**, maximum **50**) and `before` is an optional track id from `nextBefore`. A track response contains `{ "id", "title", "description", "contentType", "sizeBytes", "playCount", "createdAt", "updatedAt", "owner" }`.
+
+An invalid id, invalid query, or unknown `before` cursor returns **400**. A missing track or user returns **404**. Successful list and get requests return **200**.
+
 ## What’s in the stack
 
 | Service  | Role in the prototype        |

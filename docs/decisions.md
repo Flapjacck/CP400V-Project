@@ -25,3 +25,6 @@ Multipart audio streams through Fastify to MinIO, with a 50 MB cap in Fastify an
 
 ## GitHub Actions CI
 Two workflows on PRs and `main`: backend runs unit tests, `tsc`, and replays `db/init/` against Postgres 16; frontend runs Vite build and oxlint. Database checks live in the backend workflow because the schema and seeds are what the API depends on. Path filters skip unrelated edits; `workflow_dispatch` allows a manual run.
+
+## Track lists use keyset paging on (created_at, id)
+Track lists use keyset rather than offset paging, so later pages do not drift as new uploads arrive and Postgres does not scan skipped rows. The cursor is a track id: Postgres looks up its `created_at` without losing microsecond precision to a JavaScript date, and `id` breaks ties for uploads with the same timestamp.
